@@ -7,6 +7,7 @@ Variables:
   SHARED_LABEL   : label for shared/both (default: "Los 2")
   MORTGAGE_TOTAL : total monthly mortgage amount (default: 26000)
   SPLITS         : comma-separated percentages matching PEOPLE (default: "50,50")
+  TABLE_NAME     : name of the table range in Google Sheets (default: "Transacciones_Banco_Enero_Febrero")
 """
 
 import os
@@ -25,6 +26,7 @@ PEOPLE: list[str] = [p.strip() for p in PEOPLE_RAW.split(",") if p.strip()]
 
 SHARED_LABEL: str = os.getenv("SHARED_LABEL", "Los 2")
 MORTGAGE_TOTAL: float = float(os.getenv("MORTGAGE_TOTAL", "26000"))
+TABLE_NAME: str = os.getenv("TABLE_NAME", "Transacciones_Banco_Enero_Febrero")
 
 SPLITS_RAW: str = os.getenv("SPLITS", "50,50")
 _splits_list = [float(s.strip()) / 100.0 for s in SPLITS_RAW.split(",") if s.strip()]

@@ -119,6 +119,9 @@ MORTGAGE_TOTAL=26000
 # Cost-split percentages (comma-separated, matches order of PEOPLE)
 # Must add up to 100
 SPLITS=50,50
+
+# Google Sheets Table Reference used to build the SUMIFS formulas
+TABLE_NAME=Transacciones_Banco_Enero_Febrero
 ```
 
 **Common split examples:**
@@ -212,8 +215,8 @@ When you export and open the files in Google Sheets or Excel, the Resumen table 
 | Column | Description |
 |---|---|
 | `Nombre` | Person name + a totals row |
-| `Debe` | `=SUMIFS` referencing their direct individual charges |
-| `Los 2` | `=SUMIFS` referencing the shared charges, multiplied by their `%` share |
+| `Debe` | `=SUMIFS(Transacciones_Banco_Enero_Febrero[Monto]...` direct individual charges |
+| `Los 2` | `=SUMIFS(Transacciones_Banco_Enero_Febrero[Monto]...` shared charges × `%` share |
 | `Total Tarjeta` | `= Debe + Los 2` |
 | `Total hipoteca` | `MORTGAGE_TOTAL × split_fraction` (outputted as a hardcoded static value per your request) |
 | `Total de totales` | `= Total Tarjeta + Total hipoteca` |

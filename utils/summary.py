@@ -14,7 +14,7 @@ manually assigns the 'De quien' column later.
 import pandas as pd
 from .config import (
     PEOPLE, SHARED_LABEL,
-    MORTGAGE_TOTAL, SPLIT,
+    MORTGAGE_TOTAL, SPLIT, TABLE_NAME
 )
 
 
@@ -31,11 +31,7 @@ def build_summary() -> pd.DataFrame:
     # Total Tarjeta -> Column D
     # Total hipoteca -> Column E
     # Total de totales -> Column F
-    #
-    # The transaction sheet columns are:
-    # D: Monto (Amount)
-    # E: Tipo (Cargo / Abono)
-    # G: De quien (The manually assigned column)
+    # The named table references uses columns: [Monto], [Tipo], [De quien]
     
     # Data rows start at Excel row 2 (row 1 is headers)
     for i, person in enumerate(PEOPLE):
@@ -43,10 +39,10 @@ def build_summary() -> pd.DataFrame:
         split_frac = SPLIT[person]
         
         # Debe = explicit personal charge
-        debe_formula = f'=SUMIFS({sheet}!D:D, {sheet}!G:G, "{person}", {sheet}!E:E, "Cargo")'
+        debe_formula = f'=SUMIFS({TABLE_NAME}[Monto], {TABLE_NAME}[De quien], "{person}", {TABLE_NAME}[Tipo], "Cargo")'
         
         # Los 2 = string formula of shared portion
-        los_2_formula = f'=SUMIFS({sheet}!D:D, {sheet}!G:G, "{SHARED_LABEL}", {sheet}!E:E, "Cargo")*{split_frac:.4f}'
+        los_2_formula = f'=SUMIFS({TABLE_NAME}[Monto], {TABLE_NAME}[De quien], "{SHARED_LABEL}", {TABLE_NAME}[Tipo], "Cargo")*{split_frac:.4f}'
         
         # Totals
         total_tarjeta = f'=B{excel_row}+C{excel_row}'
@@ -65,7 +61,7 @@ def build_summary() -> pd.DataFrame:
     # Totals row for the summary table
     totals_row = len(PEOPLE) + 2
     
-    shared_formula = f'=SUMIFS({sheet}!D:D, {sheet}!G:G, "{SHARED_LABEL}", {sheet}!E:E, "Cargo")'
+    shared_formula = f'=SUMIFS({TABLE_NAME}[Monto], {TABLE_NAME}[De quien], "{SHARED_LABEL}", {TABLE_NAME}[Tipo], "Cargo")'
     sum_tarjeta = f'=SUM(D2:D{totals_row-1})'
     sum_hipoteca = round(sum(SPLIT[p] * MORTGAGE_TOTAL for p in PEOPLE), 2)
     sum_totales = f'=SUM(F2:F{totals_row-1})'
