@@ -49,6 +49,11 @@ def _sanitize_ocr(raw: str) -> str:
 
 # Known month abbreviations (Spanish + OCR variants)
 _MONTHS = r"(?:Ene|Feb|Mar|Abr|May|Jun|Jul|Ago|Sep|Oct|Nov|Dic)"
+_MONTH_MAP = {
+    "Ene": "01", "Feb": "02", "Mar": "03", "Abr": "04",
+    "May": "05", "Jun": "06", "Jul": "07", "Ago": "08",
+    "Sep": "09", "Oct": "10", "Nov": "11", "Dic": "12"
+}
 
 def clean_date(raw: str) -> str:
     """
@@ -81,24 +86,29 @@ def clean_date(raw: str) -> str:
         cleaned, flags=re.IGNORECASE
     )
     if not match:
-        # Fallback: try without year (some cells only show day-month)
         match = re.search(
             r"(\d{1,2})-(" + _MONTHS[3:-1] + r")",
             cleaned, flags=re.IGNORECASE
         )
         if match:
-            return f"{match.group(1)}-{match.group(2).capitalize()}"
+            day = match.group(1)
+            if len(day) == 1: day = "0" + day
+            month_str = match.group(2).capitalize()
+            month_num = _MONTH_MAP.get(month_str, month_str)
+            # Without year, MM/DD is most universally parsed in Sheets
+            return f"{month_num}/{day}"
         return cleaned  # return whatever we have
 
     day = match.group(1)
-    month = match.group(2).capitalize()
+    month_str = match.group(2).capitalize()
     year = match.group(3)
 
     # Zero-pad single-digit days
     if len(day) == 1:
         day = "0" + day
 
-    return f"{day}-{month}-{year}"
+    month_num = _MONTH_MAP.get(month_str, month_str)
+    return f"{year}-{month_num}-{day}"  # YYYY-MM-DD is ISO, perfectly parsed by Sheets
 
 def clean_percentage(raw: str) -> str:
     """Clean percentage string: '0%' -> '0%'"""
