@@ -14,7 +14,7 @@ venv/
 env/
 
 # Output files (generated data)
-output/
+output*/
 
 # Source PDFs (potentially sensitive financial data)
 *.pdf
@@ -30,6 +30,7 @@ output/
 # Jupyter
 .ipynb_checkpoints/
 
-# Environment variables
+# Environment variables (keep .env.example committed as documentation)
 .env
-.env.*
+.env.local
+.env.*.local
