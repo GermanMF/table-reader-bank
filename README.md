@@ -1,8 +1,8 @@
 # TableReaderProj 🏦
 
-> **Santander Credit Card Statement — Automated Table Extractor**
+> **Credit Card Statement — Automated Table Extractor**
 >
-> Extracts transaction tables from image-based Santander PDF bank statements using OCR, cleans and classifies the data, and exports it to CSV (Google Sheets–ready) and Excel — including a per-person shared-expense summary table.
+> Extracts transaction tables from image-based bank statement PDFs using OCR, cleans and classifies the data, and exports it to CSV (Google Sheets–ready) and Excel — including a per-person shared-expense summary table.
 
 ---
 
@@ -108,7 +108,7 @@ Copy `.env.example` to `.env` and customise:
 ```env
 # Comma-separated list of people who share the credit card expenses.
 # You can add as many as you want (e.g. PERSON1,PERSON2,PERSON3)
-PEOPLE=Liz,Germán
+PEOPLE=Person1,Person2
 
 # The "De quien" column label used for shared expenses
 SHARED_LABEL=Los 2
@@ -170,10 +170,10 @@ python3 main.py "Estado de cuenta.pdf" --excel-only
 | `Monto` | Amount (positive number) |
 | `Tipo` | `Cargo` (charge) or `Abono` (credit) |
 | `Tipo Tarjeta` | `Titular` or `Adicional` |
-| `De quien` | **Manually filled:** `Liz`, `Germán`, or `Los 2` |
+| `De quien` | **Manually filled:** `Person1`, `Person2`, or `Los 2` |
 | `Comentario` | Optional free-text note |
 
-> ℹ️ The `De quien` and `Comentario` columns are left blank by the extractor. Fill them in Google Sheets or Excel, then the summary will auto-update on the next run.
+> ℹ️ The `De quien` and `Comentario` columns are left blank by the extractor. Fill them in Google Sheets or Excel, then the summary will auto-update!
 
 ---
 
@@ -197,7 +197,7 @@ After importing, select the following columns and format them for better usabili
 | `Fecha Transacción`, `Fecha Cargo` | Date (Sheets usually auto-detects) |
 | `Monto`, `Debe`, `Total*` | Number → Currency |
 | `Tipo` | Use Data Validation → dropdown: `Cargo`, `Abono` |
-| `De quien` | Use Data Validation → dropdown: `Liz`, `Germán`, `Los 2` |
+| `De quien` | Use Data Validation → dropdown: `Person1`, `Person2`, `Los 2` |
 
 ---
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Santander Credit Card Statement — Table Extractor
+Bank Statement — Table Extractor
 ==================================================
-Extracts transaction tables from a Santander bank statement PDF (image-based)
+Extracts transaction tables from a bank statement PDF (image-based)
 and exports them to CSV and Excel, separated by category:
   - "Meses sin intereses" (MSI) — installment purchases
   - "No a meses" — regular charges/credits
@@ -21,7 +21,7 @@ from utils.export import export_csv, export_excel
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extract transactions from Santander credit card PDF statement"
+        description="Extract transactions from a credit card PDF statement"
     )
     parser.add_argument("pdf_path", help="Path to the cropped PDF statement")
     parser.add_argument("--output-dir", "-o", default="./output",
@@ -37,7 +37,7 @@ def main():
         sys.exit(1)
 
     print("=" * 60)
-    print("  Santander Statement — Table Extractor")
+    print("  Bank Statement — Table Extractor")
     print("=" * 60)
 
     dataframes = process_pdf(args.pdf_path, args.output_dir)

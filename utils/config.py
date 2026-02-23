@@ -3,7 +3,7 @@ Configuration loader for shared expense settings.
 Reads from a .env file (or real environment variables).
 
 Variables:
-  PEOPLE         : comma-separated list of people labels (default: "Liz,Germán")
+  PEOPLE         : comma-separated list of people labels (default: "Person1,Person2")
   SHARED_LABEL   : label for shared/both (default: "Los 2")
   MORTGAGE_TOTAL : total monthly mortgage amount (default: 26000)
   SPLITS         : comma-separated percentages matching PEOPLE (default: "50,50")
@@ -20,7 +20,7 @@ except ImportError:
 
 
 # ── Exported constants ────────────────────────────────────────────
-PEOPLE_RAW: str = os.getenv("PEOPLE", "Liz,Germán")
+PEOPLE_RAW: str = os.getenv("PEOPLE", "Person1,Person2")
 PEOPLE: list[str] = [p.strip() for p in PEOPLE_RAW.split(",") if p.strip()]
 
 SHARED_LABEL: str = os.getenv("SHARED_LABEL", "Los 2")
