@@ -24,9 +24,11 @@ def clean_amount(raw: str) -> str:
     """Clean monetary amount: '$21,098.00' -> '21098.00'"""
     if not raw:
         return ""
-    cleaned = raw.replace("$", "").replace(",", "").replace(" ", "").strip()
+    cleaned = raw.replace("$", "").replace(",", "").replace(" ", "").replace("_", "").strip()
     # Common OCR substitutions for numbers
     cleaned = cleaned.replace("O", "0").replace("o", "0")
+    # Fix '/' misread as '7' when it appears between digits: '1/58.17' -> '1758.17'
+    cleaned = re.sub(r"(\d)/(\d)", r"\g<1>7\2", cleaned)
     # Extract first valid number pattern
     match = re.search(r"-?[\d]+\.?\d*", cleaned)
     return match.group() if match else cleaned
@@ -36,6 +38,12 @@ def _sanitize_ocr(raw: str) -> str:
     # Remove border characters that the cell crop sometimes catches
     cleaned = re.sub(r"[\[\]|\\]", " ", raw)
     cleaned = " ".join(cleaned.split())
+    # Fix '/' misread as '7' when it follows a digit at word-end or between digits
+    # e.g. '140619P3/' -> '140619P37',  '1/0608UD9' -> '170608UD9'
+    # But NOT slashes that are clearly separators (e.g. '120/26' could go either way;
+    # we only fix trailing slash after digit, or slash between digit sequences)
+    cleaned = re.sub(r"(\d)/$", r"\g<1>7", cleaned)           # trailing: 'P3/' -> 'P37'
+    cleaned = re.sub(r"(\d)/(\d)", r"\g<1>7\2", cleaned)     # between digits: '1/0608' -> '170608'
     return cleaned.strip()
 
 
