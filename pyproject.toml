@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "table-reader-bank"
+version = "0.1.0"
+description = "Extract transactions from credit card statement PDFs (Santander-focused)"
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+dependencies = [
+    "pdfplumber>=0.10.0",
+    "pytesseract>=0.3.10",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "Pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "mypy>=1.0.0",
+    "pytest>=8.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["table_reader*"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["table_reader", "main.py"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
