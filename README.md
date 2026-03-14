@@ -1,255 +1,112 @@
-# TableReaderProj 🏦
+# Table Reader (Bank Statement)
 
-> **Credit Card Statement — Automated Table Extractor**
->
-> Extracts transaction tables from image-based bank statement PDFs using OCR, cleans and classifies the data, and exports it to CSV (Google Sheets–ready) and Excel — including a per-person shared-expense summary table.
+**Scope:** Extracts transactions from credit card statement PDFs (Santander-focused). Uses OCR (Tesseract), classifies MSI vs No a meses and Titular vs Adicional, exports CSV/Excel and a per-person Resumen. Table extraction runs in parallel (one thread per logical table; tables spanning pages are processed in the same thread).
 
----
-
-## Table of Contents
-
-1. [Features](#features)
-2. [Project Structure](#project-structure)
-3. [Requirements](#requirements)
-4. [Installation](#installation)
-5. [Configuration (.env)](#configuration-env)
-6. [Usage](#usage)
-7. [Output Files](#output-files)
-8. [Google Sheets Integration](#google-sheets-integration)
-9. [Summary Table Logic](#summary-table-logic)
-10. [How It Works](#how-it-works)
-
----
-
-## Features
-
-- 📄 **PDF → OCR** — Renders each page at 300 DPI and uses Tesseract OCR to read individual table cells.
-- 🔠 **Smart date & amount cleaning** — Fixes common OCR mis-reads (`f→7`, `O→0`, border bleed, extra digits).
-- 🗂 **Automatic classification** — Separates *Meses sin intereses* (MSI) from *No a meses* (regular) and *Titular* from *Adicional* cards.
-- 📊 **Consolidated sheet** — Merges Titular + Adicional regular transactions into one view.
-- 👥 **Per-person summary table** — Produces a Resumen sheet/CSV showing each person's liability, shared amounts, and mortgage contribution.
-- ⚙️ **Configurable via `.env`** — Person names, mortgage total, and cost-split percentages are all environment variables.
-- 🌐 **Google Sheets–compatible** — CSVs are exported as UTF-8 BOM so special characters (ñ, tildes) import correctly.
-
----
-
-## Project Structure
-
-```
-TableReaderProj/
-├── main.py                  # CLI entry point
-├── requirements.txt         # Python dependencies
-├── .env                     # Your private config (gitignored)
-├── .env.example             # Config template (committed)
-├── .gitignore
-├── utils/
-│   ├── config.py            # Loads .env variables (person names, split, mortgage)
-│   ├── extraction.py        # PDF rendering + cell-by-cell OCR extraction
-│   ├── ocr.py               # Tesseract OCR helpers (crop, sharpen, sign detection)
-│   ├── data_cleaning.py     # Date/amount/percentage cleaning + row classification
-│   ├── summary.py           # Per-person expense summary table builder
-│   └── export.py            # CSV & Excel export (Google Sheets compatible)
-└── output/                  # Generated files (gitignored)
-    ├── msi_titular.csv
-    ├── msi_adicional.csv
-    ├── no_a_meses_titular.csv
-    ├── no_a_meses_adicional.csv
-    ├── no_a_meses_consolidado.csv
-    ├── resumen.csv           ← per-person summary
-    └── estado_de_cuenta.xlsx ← all sheets + Resumen
-```
+**Python:** 3.14+
 
 ---
 
 ## Requirements
 
-| Dependency | Version | Purpose |
-|---|---|---|
-| `pdfplumber` | ≥ 0.10 | Table boundary detection in PDFs |
-| `pytesseract` | ≥ 0.3.10 | Python wrapper for Tesseract OCR |
-| `Pillow` | ≥ 10.0 | Image manipulation & cell cropping |
-| `numpy` | ≥ 1.24 | Pixel-level sign detection (+/-) |
-| `pandas` | ≥ 2.0 | DataFrame manipulation & export |
-| `openpyxl` | ≥ 3.1 | Excel (.xlsx) file writing |
-| `python-dotenv` | ≥ 1.0 | Loads `.env` configuration file |
-
-> **System requirement:** [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) must be installed and available on your `PATH`.
-> - macOS: `brew install tesseract tesseract-lang`
-> - Ubuntu: `sudo apt install tesseract-ocr tesseract-ocr-spa`
+- **Python 3.14+**
+- **Tesseract OCR** on your `PATH` (e.g. `brew install tesseract tesseract-lang` on macOS; `apt install tesseract-ocr tesseract-ocr-spa` on Ubuntu)
+- Dependencies: see `requirements.txt` or `pyproject.toml` (pdfplumber, pytesseract, pandas, openpyxl, Pillow, numpy, python-dotenv)
 
 ---
 
-## Installation
+## How to run
 
 ```bash
-# 1. Clone the repository
+# 1. Clone and enter project
 git clone <repo-url>
-cd TableReaderProj
+cd table-reader-bank
 
-# 2. Create & activate virtual environment
-python3 -m venv .venv
+# 2. Create venv and install
+python3.14 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-
-# 3. Install Python dependencies
 pip install -r requirements.txt
 
-# 4. Copy config template and fill in your values
+# 3. Config (optional)
 cp .env.example .env
-# Edit .env with your preferred names, mortgage total, and split percentages
+# Edit .env with person names, mortgage total, splits, TABLE_NAME, etc.
+
+# 4. Run
+python main.py "path/to/estado_de_cuenta.pdf"
+python main.py "path/to/estado_de_cuenta.pdf" --output-dir ./output
+python main.py "path/to/estado_de_cuenta.pdf" --csv-only
+python main.py "path/to/estado_de_cuenta.pdf" --excel-only
+```
+
+---
+
+## Project structure
+
+```
+table-reader-bank/
+├── main.py                 # CLI entry point
+├── pyproject.toml         # Project metadata, Python ≥3.14, ruff/mypy
+├── requirements.txt
+├── .env.example
+├── table_reader/           # Main package
+│   ├── config.py          # .env loader (PEOPLE, SPLITS, MORTGAGE_TOTAL, etc.)
+│   ├── constants.py       # RENDER_DPI, column names, AMOUNT_CHAR_WHITELIST
+│   ├── extraction.py     # PDF → tables, parallel by logical table
+│   ├── ocr.py            # Tesseract wrappers, sign detection
+│   ├── data_cleaning.py   # Classification, date/amount cleaning, reconciliation
+│   ├── summary.py        # Per-person Resumen with SUMIFS formulas
+│   ├── export.py         # CSV (UTF-8 BOM) and Excel
+│   └── lib/               # Shared pure helpers
+│       ├── text.py        # sanitize_ocr, MONTHS_PATTERN, first_number, looks_numeric
+│       └── image.py       # crop_cell_image, prepare_for_ocr, SCALE
+└── output/                # Generated CSVs and Excel (gitignored)
 ```
 
 ---
 
 ## Configuration (.env)
 
-All shared-expense settings live in a `.env` file at the project root.  
-Copy `.env.example` to `.env` and customise:
+Copy `.env.example` to `.env`. Main variables:
 
-```env
-# Comma-separated list of people who share the credit card expenses.
-# You can add as many as you want (e.g. PERSON1,PERSON2,PERSON3)
-PEOPLE=Person1,Person2
-
-# The "De quien" column label used for shared expenses
-SHARED_LABEL=Los 2
-
-# Total monthly mortgage amount (same currency as transactions)
-MORTGAGE_TOTAL=26000
-
-# Cost-split percentages (comma-separated, matches order of PEOPLE)
-# Must add up to 100
-SPLITS=50,50
-
-# Google Sheets Table Reference used to build the SUMIFS formulas
-TABLE_NAME=Transacciones_Banco_Enero_Febrero
-```
-
-**Common split examples:**
-
-| Scenario | `SPLITS` |
-|---|---|
-| Even (default) | `50,50` |
-| 60/40 | `60,40` |
-| 40/60 | `40,60` |
-| 3 people | `33.3,33.3,33.4` |
+| Variable | Description |
+|----------|-------------|
+| `PEOPLE` | Comma-separated names (e.g. `Person1,Person2`) |
+| `SHARED_LABEL` | Label for shared charges (default `Los 2`) |
+| `MORTGAGE_TOTAL` | Monthly mortgage amount |
+| `SPLITS` | Cost-split % matching PEOPLE order (e.g. `50,50`) |
+| `TABLE_NAME` | Google Sheets table name for SUMIFS formulas |
+| `EXPECTED_NOAMESES_CARGOS` / `EXPECTED_NOAMESES_ABONOS` | Optional; validate No a Meses totals |
 
 ---
 
-## Usage
-
-```bash
-# Basic usage (outputs to ./output by default)
-python3 main.py "Estado de cuenta febrero 2026 - crop.pdf"
-
-# Specify a custom output directory
-python3 main.py "Estado de cuenta.pdf" --output-dir ./my_output
-
-# Export CSV only (skip Excel)
-python3 main.py "Estado de cuenta.pdf" --csv-only
-
-# Export Excel only (skip CSV)
-python3 main.py "Estado de cuenta.pdf" --excel-only
-```
-
----
-
-## Output Files
+## Output files
 
 | File | Description |
-|---|---|
-| `msi_titular.csv / _adicional.csv` | Installment (MSI) transactions |
-| `no_a_meses_titular.csv / _adicional.csv` | Regular transactions by card |
+|------|-------------|
+| `msi_titular.csv` / `msi_adicional.csv` | MSI (installment) transactions |
+| `no_a_meses_titular.csv` / `no_a_meses_adicional.csv` | Regular transactions by card |
 | `no_a_meses_consolidado.csv` | All regular transactions merged |
-| `resumen.csv` | Per-person summary table |
+| `resumen.csv` | Per-person summary (formulas for Debe, Los 2, Total Tarjeta, etc.) |
 | `estado_de_cuenta.xlsx` | All sheets above in one workbook |
 
-### Transaction columns (No a meses)
-
-| Column | Description |
-|---|---|
-| `Fecha Transacción` | Date the transaction occurred |
-| `Fecha Cargo` | Date the charge was posted |
-| `Descripción` | Merchant / description |
-| `Monto` | Amount (positive number) |
-| `Tipo` | `Cargo` (charge) or `Abono` (credit) |
-| `Tipo Tarjeta` | `Titular` or `Adicional` |
-| `De quien` | **Manually filled:** `Person1`, `Person2`, or `Los 2` |
-| `Comentario` | Optional free-text note |
-
-> ℹ️ The `De quien` and `Comentario` columns are left blank by the extractor. Fill them in Google Sheets or Excel, then the summary will auto-update!
+CSVs use **UTF-8 BOM** for correct import into Google Sheets (ñ, tildes). Fill the `De quien` column in the consolidated sheet; Resumen formulas update automatically.
 
 ---
 
-## Google Sheets Integration
+## Summary table (Resumen)
 
-The CSV files are saved with **UTF-8 BOM** (`utf-8-sig`) encoding, which ensures Google Sheets correctly renders Spanish characters (ñ, á, é, etc.) without any manual encoding selection.
-
-### Import steps
-
-1. Open [Google Sheets](https://sheets.google.com) → **File → Import**
-2. Click **Upload** and select any `.csv` from the `output/` folder
-3. Set **Separator**: Comma, **Encoding**: UTF-8, **Convert text to numbers/dates**: Yes
-4. Click **Import data**
-
-### Column type hints for Sheets
-
-After importing, select the following columns and format them for better usability:
-
-| Column | Format |
-|---|---|
-| `Fecha Transacción`, `Fecha Cargo` | Date (Sheets usually auto-detects) |
-| `Monto`, `Debe`, `Total*` | Number → Currency |
-| `Tipo` | Use Data Validation → dropdown: `Cargo`, `Abono` |
-| `De quien` | Use Data Validation → dropdown: `Person1`, `Person2`, `Los 2` |
+Resumen contains **spreadsheet formulas** (`=SUMIFS(...)`, `=SUM(...)`). Open in Excel or Google Sheets; as you set `De quien` on the consolidated sheet, totals update. Columns: Nombre, Debe, Los 2, Total Tarjeta, Total hipoteca, Total de totales.
 
 ---
 
-## Summary Table Logic
+## How it works
 
-The **Resumen** (`resumen.csv` / `Resumen` Excel sheet) is generated as a template full of **live spreadsheet formulas** (`=SUMIFS(...)`, `SUM()`).
-
-When you export and open the files in Google Sheets or Excel, the Resumen table will automatically calculate the totals as you manually fill in the `De quien` column on the **No a Meses Consolidado** sheet.
-
-### Columns
-
-| Column | Description |
-|---|---|
-| `Nombre` | Person name + a totals row |
-| `Debe` | `=SUMIFS(Transacciones_Banco_Enero_Febrero[Monto]...` direct individual charges |
-| `Los 2` | `=SUMIFS(Transacciones_Banco_Enero_Febrero[Monto]...` shared charges × `%` share |
-| `Total Tarjeta` | `= Debe + Los 2` |
-| `Total hipoteca` | `MORTGAGE_TOTAL × split_fraction` (outputted as a hardcoded static value per your request) |
-| `Total de totales` | `= Total Tarjeta + Total hipoteca` |
-
-### Dynamic configuration
-You can add from 1 to N number of people. The summary builder will automatically construct formulas matching your configured `PEOPLE` list and distribute the total `MORTGAGE_TOTAL` using the `SPLITS` percentages!
+1. PDF pages rendered at 300 DPI; pdfplumber finds table bounding boxes.
+2. Tables are grouped (continuation tables attached to the previous logical table).
+3. Each logical table is extracted in parallel (OCR cell-by-cell, Tesseract).
+4. data_cleaning classifies rows, cleans dates/amounts, reconciles totals.
+5. DataFrames built per sheet; No a Meses Titular + Adicional merged into Consolidado.
+6. Export CSV (UTF-8 BOM) and/or Excel; Resumen built from config and formulas.
 
 ---
 
-## How It Works
-
-```
-PDF (image-based)
-  │
-  ▼ pdfplumber → finds table bounding boxes
-  │
-  ▼ Pillow → renders pages at 300 DPI
-  │
-  ▼ Tesseract OCR → reads each cell (PSM 7 / PSM 6)
-  │
-  ▼ data_cleaning.py → fixes dates, amounts, classifies rows
-  │
-  ▼ extraction.py → assembles DataFrames per category/card
-  │
-  ├──▶ msi_titular / msi_adicional
-  ├──▶ no_a_meses_titular / no_a_meses_adicional
-  ├──▶ no_a_meses_consolidado
-  │
-  ▼ summary.py → per-person totals table (reads .env config)
-  │
-  ▼ export.py → CSV (UTF-8 BOM) + Excel (.xlsx)
-```
-
----
-
-*Generated by [table-reader-bank](https://github.com/GermanMF/table-reader-bank) — last updated February 2026.*
+*Santander-focused; other banks may work but are not guaranteed.*
