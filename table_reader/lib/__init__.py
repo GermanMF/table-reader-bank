@@ -8,6 +8,8 @@ from table_reader.lib.text import (
     MONTH_MAP,
     first_number,
     looks_numeric,
+    normalize_month,
+    normalize_day,
 )
 from table_reader.lib.image import crop_cell_image, prepare_for_ocr, SCALE
 
@@ -17,6 +19,8 @@ __all__ = [
     "MONTH_MAP",
     "first_number",
     "looks_numeric",
+    "normalize_month",
+    "normalize_day",
     "crop_cell_image",
     "prepare_for_ocr",
     "SCALE",

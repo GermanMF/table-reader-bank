@@ -134,6 +134,7 @@ def _ocr_regular_row(
         if cell_width < 20:
             text = detect_sign_cell(page_img, cell)
         elif ci == 4:
+            # Amount column: restrict OCR to digit/number characters
             text = ocr_cell(page_img, cell, char_whitelist=AMOUNT_CHAR_WHITELIST)
         else:
             text = ocr_cell(page_img, cell)
@@ -338,7 +339,14 @@ def process_pdf(
             totals = table_totals.get(sheet_name, {})
             total_cargos = _safe_float(totals.get("total_cargos"))
             total_abonos = _safe_float(totals.get("total_abonos"))
-            if total_cargos is not None or total_abonos is not None:
+            # Only use per-table footer totals when no .env expected totals
+            # are configured, since PDF footer totals may span the entire
+            # statement rather than individual sub-tables.
+            has_env_expected = (
+                EXPECTED_NOAMESES_CARGOS is not None
+                or EXPECTED_NOAMESES_ABONOS is not None
+            )
+            if not has_env_expected and (total_cargos is not None or total_abonos is not None):
                 corrections = reconcile_totals_and_fix(df, total_cargos, total_abonos)
                 for idx, old_val, new_val in corrections:
                     print(f"   🔧 Corrected OCR amount row {idx}: {old_val} → {new_val} (reconciled with statement total)")
