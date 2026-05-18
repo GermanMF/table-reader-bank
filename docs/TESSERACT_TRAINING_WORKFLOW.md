@@ -46,34 +46,45 @@ python tasks/review_ground_truth.py
 4. Press **ENTER** to save and go to the next file.
 5. If an image is completely blank, unreadable, or a weird border piece, click **Delete Pair**.
 
-### Step 3: Run Tesstrain
-Now feed your corrected dataset to Tesseract to generate a new `.traineddata` model file.
+### Step 3: Run Tesstrain (Using WSL)
+Since the `make` command and the training scripts rely on Linux tools, you should run this step using your WSL (Windows Subsystem for Linux) terminal.
+
+**1. Open your WSL Terminal (e.g., Ubuntu).**
+
+**2. Ensure you have the required Linux dependencies installed in WSL:**
+```bash
+sudo apt update
+sudo apt install tesseract-ocr tesseract-ocr-spa libtesseract-dev make unzip python3
+```
+
+**3. Run the training command via the `/mnt/` path:**
+In WSL, your `L:` drive is mounted at `/mnt/l/`. Run the following command exactly as written:
 
 ```bash
-# 1. Switch to the tesstrain directory
-cd /l/gmart/Documents/Github/tesstrain
+cd /mnt/l/gmart/Documents/Github/tesstrain
 
-# 2. Run the training process
 make training \
   MODEL_NAME=santander \
   START_MODEL=spa \
-  TESSDATA="/c/Program Files/Tesseract-OCR/tessdata" \
-  GROUND_TRUTH_DIR=/l/gmart/Documents/Github/table-reader-bank/tasks/ground_truth \
+  TESSDATA=/usr/share/tesseract-ocr/5/tessdata \
+  GROUND_TRUTH_DIR=/mnt/l/gmart/Documents/Github/table-reader-bank/tasks/ground_truth \
   LEARNING_RATE=0.0001 \
   MAX_ITERATIONS=400 \
   PSM=7
 ```
-*(This takes ~5–15 minutes. It outputs `data/santander.traineddata`)*
+*(Note: If `make` complains about missing `tessdata`, double check if your WSL Tesseract is on version 4 or 5. If version 4, use `TESSDATA=/usr/share/tesseract-ocr/4.00/tessdata`)*
+
+*(This takes ~5–15 minutes. It outputs `data/santander.traineddata` inside the tesstrain folder)*
 
 ### Step 4: Install & Use the Model
-Copy the new trained model into Tesseract's system folder.
+Once training finishes in WSL, you need to copy the resulting trained model back to your **Windows** Tesseract installation so your Python script can use it.
 
+You can do this right from your WSL terminal:
 ```bash
-cp /l/gmart/Documents/Github/tesstrain/data/santander.traineddata \
-   "/c/Program Files/Tesseract-OCR/tessdata/santander.traineddata"
+sudo cp /mnt/l/gmart/Documents/Github/tesstrain/data/santander.traineddata "/mnt/c/Program Files/Tesseract-OCR/tessdata/santander.traineddata"
 ```
 
-The Python app is already configured to read from `.env`. Ensure your `.env` contains:
+Then, ensure your `.env` in the project contains:
 ```env
 TESSERACT_LANG=santander+spa
 ```
