@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-05-18
+
+### Added
+- **Tesseract Fine-Tuning Workflow:** Built an end-to-end dataset generation pipeline (`export_ground_truth.py` and `correct_ground_truth.py`) to extract cell images from PDFs and auto-correct OCR text for model training.
+- **Advanced Reconciliation Strategies:** Added missing decimal point detection and mathematical outlier correction to robustly match statement totals when OCR digits are garbled.
+- **OCR Constraints:** Added `AMOUNT_CHAR_WHITELIST` to Tesseract configuration for amount columns to aggressively filter out description text noise.
+- **Fuzzy Date Parsing:** Introduced `normalize_month()` and `normalize_day()` to handle severe OCR noise (e.g. "Apbr") without brittle regex patches.
+- **Centralized Documentation:** Consolidated all training workflows, guides, and lessons learned into a dedicated `docs/` folder.
+
+### Fixed
+- Stopped PDF footer summary totals ("Total de cargos") from leaking into transaction data.
+- Fixed per-table footer reconciliation erroneously corrupting individual table data by prioritizing the exact `.env` expected totals.
+
 ## [2.0.0] - 2026-03-14
 
 ### Changed

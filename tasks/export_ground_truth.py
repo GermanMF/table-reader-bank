@@ -173,10 +173,9 @@ def main() -> None:
     n = export_ground_truth(pdf, out)
     print(f"\n✅ Exported {n} cell pairs to: {out.resolve()}")
     print("\nNext steps:")
-    print("  1. Open the folder and review each .png + its .gt.txt")
-    print("  2. Fix any wrong .gt.txt files (these are what Tesseract learns)")
-    print("  3. Run: python tasks/correct_ground_truth.py")
-    print("  4. See docs/TESSERACT_TRAINING_WORKFLOW.md for tesstrain commands")
+    print("  1. Run: python tasks/correct_ground_truth.py (Auto-corrects known issues)")
+    print("  2. Run: python tasks/review_ground_truth.py (GUI to review and fix texts)")
+    print("  3. See docs/TESSERACT_TRAINING_WORKFLOW.md for tesstrain commands")
 
 if __name__ == "__main__":
     main()

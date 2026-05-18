@@ -34,14 +34,17 @@ python tasks/correct_ground_truth.py
 ### Step 2: Manual Review (Crucial!)
 Tesseract learns from the `.gt.txt` (ground truth) files. If they are wrong, Tesseract learns the wrong thing.
 
-1. Open the `tasks/ground_truth/` folder.
-2. Look at the `.png` image previews.
-3. Open the matching `.gt.txt` file and verify it perfectly matches the characters in the image.
-4. Correct any remaining errors that the auto-script missed. Delete any pairs where the image is completely blank or unreadable.
+To make reviewing the hundreds of generated files fast and painless, use the GUI review tool:
 
-**What to verify:**
-- Dates must match the visual characters: `29-Abr-2026`
-- Amounts must include the decimal: `811.35` (not `811351`)
+```bash
+python tasks/review_ground_truth.py
+```
+
+1. The tool will pop up a window showing the image crop, scaled up for readability.
+2. Ensure the text box matches the **exact** characters seen in the image.
+3. Correct the text if needed (e.g. if the image says `29-Abr-2026`, the text box must be `29-Abr-2026`).
+4. Press **ENTER** to save and go to the next file.
+5. If an image is completely blank, unreadable, or a weird border piece, click **Delete Pair**.
 
 ### Step 3: Run Tesstrain
 Now feed your corrected dataset to Tesseract to generate a new `.traineddata` model file.
