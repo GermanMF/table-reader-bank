@@ -1,18 +1,19 @@
-import os
 import sys
-import tkinter as tk
-from tkinter import messagebox
 from pathlib import Path
-from PIL import Image, ImageTk
+from PyQt6.QtWidgets import (QApplication, QWidget, QLabel, QLineEdit, 
+                             QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox)
+from PyQt6.QtGui import QPixmap, QImage, QFont
+from PyQt6.QtCore import Qt
 
-class GroundTruthReviewer:
-    def __init__(self, master, gt_dir="tasks/ground_truth"):
-        self.master = master
-        self.master.title("Tesseract Ground Truth Reviewer")
+class GroundTruthReviewer(QWidget):
+    def __init__(self, gt_dir="tasks/ground_truth"):
+        super().__init__()
+        self.setWindowTitle("Tesseract Ground Truth Reviewer")
+        self.resize(700, 450)
         self.gt_dir = Path(gt_dir)
         
         if not self.gt_dir.exists():
-            messagebox.showerror("Error", f"Directory {gt_dir} not found!")
+            QMessageBox.critical(self, "Error", f"Directory {gt_dir} not found!")
             sys.exit(1)
             
         self.pairs = []
@@ -23,65 +24,90 @@ class GroundTruthReviewer:
                 self.pairs.append((png_file, gt_file, tif_file))
                 
         if not self.pairs:
-            messagebox.showinfo("Done", "No files found to review.")
+            QMessageBox.information(self, "Done", "No files found to review.")
             sys.exit(0)
             
         self.current_idx = 0
         
         # UI Setup
-        self.info_var = tk.StringVar()
-        self.info_label = tk.Label(master, textvariable=self.info_var, font=("Arial", 12, "bold"))
-        self.info_label.pack(pady=15)
+        layout = QVBoxLayout()
         
-        self.image_label = tk.Label(master, bg="grey", bd=2, relief="solid")
-        self.image_label.pack(pady=10)
+        self.info_label = QLabel()
+        self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.info_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        layout.addWidget(self.info_label)
         
-        self.text_var = tk.StringVar()
-        self.entry = tk.Entry(master, textvariable=self.text_var, font=("Consolas", 24), width=30, justify="center")
-        self.entry.pack(pady=20)
-        self.entry.bind("<Return>", lambda e: self.next_pair())
-        self.entry.bind("<Up>", lambda e: self.prev_pair())
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setStyleSheet("background-color: grey; border: 2px solid black;")
+        layout.addWidget(self.image_label)
         
-        btn_frame = tk.Frame(master)
-        btn_frame.pack(pady=20)
+        self.entry = QLineEdit()
+        self.entry.setFont(QFont("Consolas", 24))
+        self.entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.entry.returnPressed.connect(self.next_pair)
+        layout.addWidget(self.entry)
         
-        tk.Button(btn_frame, text="← Prev (Up Arrow)", command=self.prev_pair, width=15, font=("Arial", 11)).pack(side=tk.LEFT, padx=10)
-        tk.Button(btn_frame, text="Delete Pair", command=self.delete_pair, width=15, font=("Arial", 11), bg="#ffcccc").pack(side=tk.LEFT, padx=10)
-        tk.Button(btn_frame, text="Save & Next (Enter) →", command=self.next_pair, width=25, font=("Arial", 11, "bold"), bg="#ccffcc").pack(side=tk.LEFT, padx=10)
+        btn_layout = QHBoxLayout()
         
-        # Instructions
-        instr = tk.Label(master, text="Focus the text box. Type the exact characters seen in the image.\nPress ENTER to save and advance. Press UP ARROW to go back.", fg="gray")
-        instr.pack(side=tk.BOTTOM, pady=10)
-
+        self.btn_prev = QPushButton("← Prev (Up Arrow)")
+        self.btn_prev.setFont(QFont("Arial", 11))
+        self.btn_prev.clicked.connect(self.prev_pair)
+        btn_layout.addWidget(self.btn_prev)
+        
+        self.btn_delete = QPushButton("Delete Pair")
+        self.btn_delete.setFont(QFont("Arial", 11))
+        self.btn_delete.setStyleSheet("background-color: #ffcccc;")
+        self.btn_delete.clicked.connect(self.delete_pair)
+        btn_layout.addWidget(self.btn_delete)
+        
+        self.btn_next = QPushButton("Save & Next (Enter) →")
+        self.btn_next.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.btn_next.setStyleSheet("background-color: #ccffcc;")
+        self.btn_next.clicked.connect(self.next_pair)
+        btn_layout.addWidget(self.btn_next)
+        
+        layout.addLayout(btn_layout)
+        
+        instr = QLabel("Focus the text box. Type the exact characters seen in the image.\nPress ENTER to save and advance. Press UP ARROW to go back.")
+        instr.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        instr.setStyleSheet("color: gray;")
+        layout.addWidget(instr)
+        
+        self.setLayout(layout)
         self.load_current()
-        self.entry.focus_set()
         
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Up:
+            self.prev_pair()
+        else:
+            super().keyPressEvent(event)
+            
     def load_current(self):
         if self.current_idx >= len(self.pairs):
-            messagebox.showinfo("Done", "You have reviewed all files in the directory!")
-            self.master.quit()
+            QMessageBox.information(self, "Done", "You have reviewed all files in the directory!")
+            self.close()
             return
             
         png_file, gt_file, _ = self.pairs[self.current_idx]
         
-        self.info_var.set(f"File {self.current_idx + 1} of {len(self.pairs)}\n{png_file.name}")
+        self.info_label.setText(f"File {self.current_idx + 1} of {len(self.pairs)}\n{png_file.name}")
         
-        img = Image.open(png_file)
-        # Scale up the image by 2.5x just for viewing so it's easier to read
-        w, h = img.size
-        img = img.resize((int(w * 2.5), int(h * 2.5)), Image.Resampling.NEAREST)
-        
-        self.photo = ImageTk.PhotoImage(img)
-        self.image_label.config(image=self.photo)
+        pixmap = QPixmap(str(png_file))
+        # Scale up the image by 2.5x
+        scaled_pixmap = pixmap.scaled(int(pixmap.width() * 2.5), int(pixmap.height() * 2.5), 
+                                      Qt.AspectRatioMode.KeepAspectRatio, 
+                                      Qt.TransformationMode.FastTransformation)
+        self.image_label.setPixmap(scaled_pixmap)
         
         text = gt_file.read_text(encoding="utf-8").strip()
-        self.text_var.set(text)
-        self.entry.icursor(tk.END)
-        self.entry.selection_range(0, tk.END)
+        self.entry.setText(text)
+        self.entry.selectAll()
+        self.entry.setFocus()
         
     def save_current(self):
         png_file, gt_file, _ = self.pairs[self.current_idx]
-        new_text = self.text_var.get().strip()
+        new_text = self.entry.text().strip()
         gt_file.write_text(new_text, encoding="utf-8")
         
     def next_pair(self):
@@ -106,19 +132,13 @@ class GroundTruthReviewer:
             self.current_idx -= 1
             
         if self.current_idx < 0:
-            messagebox.showinfo("Done", "No more files left.")
-            self.master.quit()
+            QMessageBox.information(self, "Done", "No more files left.")
+            self.close()
         else:
             self.load_current()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.geometry("700x450")
-    # Center the window
-    root.update_idletasks()
-    x = (root.winfo_screenwidth() - 700) // 2
-    y = (root.winfo_screenheight() - 450) // 2
-    root.geometry(f"+{x}+{y}")
-    
-    app = GroundTruthReviewer(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = GroundTruthReviewer()
+    window.show()
+    sys.exit(app.exec())
