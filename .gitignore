@@ -38,4 +38,5 @@ output*/
 
 # Tesseract training data
 tasks/ground_truth/*.png
-tasks/ground_truth/*.tif
+tasks/ground_truth/*.tiftasks/ground_truth/*.box
+tasks/ground_truth/*.lstmf
