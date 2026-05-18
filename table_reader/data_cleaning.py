@@ -11,6 +11,8 @@ from table_reader.lib.text import (
     MONTH_MAP,
     first_number,
     looks_numeric,
+    normalize_month,
+    normalize_day,
 )
 
 
@@ -31,10 +33,19 @@ def classify_table(header_text: str) -> tuple[str, str]:
 
 
 def clean_amount(raw: str) -> str:
-    """Clean monetary amount: '$21,098.00' -> '21098.00'; also '599,90' -> '599.90'."""
-    if not raw:
-        return ""
+    """Clean common OCR errors in amounts."""
+    if not isinstance(raw, str):
+        return str(raw)
+        
+    parts = raw.split()
+    if len(parts) >= 2:
+        # Tesseract often reads an isolated '$' as '3', '5', 'S', etc. with a space after it.
+        if parts[0] in ("3", "5", "S", "s", "1", "o", "O", "8"):
+            raw = " ".join(parts[1:])
+
     cleaned = raw.replace("$", "").replace(" ", "").replace("_", "").strip()
+    if cleaned.endswith("]"):
+        cleaned = cleaned[:-1]
     if re.search(r",\d{2}(?:\D|$)", cleaned) and cleaned.count(",") == 1:
         cleaned = cleaned.replace(",", ".")
     else:
@@ -43,45 +54,61 @@ def clean_amount(raw: str) -> str:
     cleaned = cleaned.replace("S", "5").replace("s", "5")
     cleaned = cleaned.replace("l", "1").replace("I", "1")
     cleaned = re.sub(r"(\d)/(\d)", r"\g<1>7\2", cleaned)
-    return first_number(cleaned)
+    result = first_number(cleaned)
+    # If the number is all digits (no decimal) and has 4+ digits,
+    # it's likely a missing decimal point — insert one 2 places from end.
+    if re.fullmatch(r"\d{4,}", result):
+        result = result[:-2] + "." + result[-2:]
+    return result
 
 
 def clean_date(raw: str) -> str:
     """
     Clean date string and fix common OCR errors.
-    Handles border bleed, day digit misreads, extra digit noise.
+    Handles border bleed, noisy month tokens (e.g. 'Apbr' → 'Abr'),
+    garbled day digits (e.g. '2/' → '02'), and extra digit noise.
     """
     if not raw:
         return ""
     cleaned = sanitize_ocr(raw)
+
+    # Broad pattern: capture any word-like month token (letters only) so
+    # normalize_month() can fuzzy-match it, and capture the day and year.
+    # Allows extra characters in the month string (e.g. 'Apbr', 'Abpr').
+    match = re.search(
+        r"(\d{1,2}[^-]*)-(\w+)-(\d{4})",
+        cleaned, flags=re.IGNORECASE
+    )
+    if match:
+        raw_day, raw_month, year = match.group(1), match.group(2), match.group(3)
+        day = normalize_day(raw_day)
+        month_canon = normalize_month(raw_month)
+        month_num = MONTH_MAP.get(month_canon, None)
+        if month_num:
+            return f"{year}-{month_num}-{day}"
+
+    # Fallback: try with exact MONTHS_PATTERN (original logic)
     months_inner = MONTHS_PATTERN[3:-1]  # strip (?: and )
-
-    cleaned = re.sub(r"\b(\d)f(-" + MONTHS_PATTERN + r")", r"\g<1>7\2", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\b(\d)/(-" + MONTHS_PATTERN + r")", r"\g<1>7\2", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\b(\d{2})\d(-" + MONTHS_PATTERN + r")", r"\1\2", cleaned, flags=re.IGNORECASE)
-
     match = re.search(
         r"(\d{1,2})-(" + months_inner + r")-(\d{4})",
         cleaned, flags=re.IGNORECASE
     )
-    if not match:
-        match = re.search(r"(\d{1,2})-(" + months_inner + r")", cleaned, flags=re.IGNORECASE)
-        if match:
-            day = match.group(1)
-            if len(day) == 1:
-                day = "0" + day
-            month_str = match.group(2).capitalize()
-            month_num = MONTH_MAP.get(month_str, month_str)
-            return f"{month_num}/{day}"
-        return cleaned
+    if match:
+        day = match.group(1).zfill(2)
+        month_str = match.group(2).capitalize()
+        year = match.group(3)
+        month_num = MONTH_MAP.get(month_str, month_str)
+        return f"{year}-{month_num}-{day}"
 
-    day = match.group(1)
-    month_str = match.group(2).capitalize()
-    year = match.group(3)
-    if len(day) == 1:
-        day = "0" + day
-    month_num = MONTH_MAP.get(month_str, month_str)
-    return f"{year}-{month_num}-{day}"
+    # No year: partial date (month/day only)
+    match = re.search(r"(\d{1,2})-(" + months_inner + r")", cleaned, flags=re.IGNORECASE)
+    if match:
+        day = match.group(1).zfill(2)
+        month_str = match.group(2).capitalize()
+        month_num = MONTH_MAP.get(month_str, month_str)
+        return f"{month_num}/{day}"
+
+    return cleaned
 
 
 def clean_percentage(raw: str) -> str:
@@ -102,9 +129,14 @@ def is_header_row(row_data: list) -> bool:
 
 
 def is_total_row(row_data: list) -> bool:
-    """Check if a row is a summary/total row (e.g. 'Total cargos', 'Total abonos')."""
+    """Check if a row is a summary/total row (e.g. 'Total cargos', 'Total de cargos')."""
     text = " ".join(str(x).lower() for x in row_data)
-    return "total cargos" in text or "total abonos" in text
+    return (
+        "total cargos" in text
+        or "total abonos" in text
+        or "total de cargos" in text
+        or "total de abonos" in text
+    )
 
 
 def parse_total_row(row_data: list) -> tuple[str, str] | None:
@@ -115,7 +147,7 @@ def parse_total_row(row_data: list) -> tuple[str, str] | None:
     if not is_total_row(row_data):
         return None
     text = " ".join(str(x).lower() for x in row_data)
-    kind = "cargos" if "total cargos" in text else "abonos"
+    kind = "cargos" if ("total cargos" in text or "total de cargos" in text) else "abonos"
     amount_str = ""
     for i in range(len(row_data) - 1, -1, -1):
         val = str(row_data[i]).strip() if i < len(row_data) else ""
@@ -151,6 +183,26 @@ def _amount_str_diff_one_digit(a: str, b: str) -> bool:
     return (x, y) in _OCR_DIGIT_CONFUSIONS or (y, x) in _OCR_DIGIT_CONFUSIONS
 
 
+def _try_decimal_insertion(raw_str: str, expected_remainder: float) -> float | None:
+    """
+    If OCR lost the decimal point, try inserting it at plausible positions.
+    Returns corrected float if inserting a decimal in `raw_str` yields
+    `expected_remainder`, or None.
+    """
+    digits = re.sub(r"[^\d]", "", raw_str)
+    if len(digits) < 3:
+        return None
+    for pos in range(len(digits) - 2, max(0, len(digits) - 4), -1):
+        candidate_str = digits[:pos] + "." + digits[pos:]
+        try:
+            val = float(candidate_str)
+            if abs(val - expected_remainder) < 0.02:
+                return val
+        except ValueError:
+            continue
+    return None
+
+
 def reconcile_totals_and_fix(
     df: pd.DataFrame,
     total_cargos: float | None,
@@ -159,9 +211,13 @@ def reconcile_totals_and_fix(
     tipo_col: str = "Tipo",
 ) -> list[tuple[int, str, str]]:
     """
-    Compare sum of cargos/abonos to expected totals. If a single transaction
-    differs by one digit (OCR confusion) and fixing it matches the sum,
-    correct that cell in-place and return [(row_index, old_value, new_value), ...].
+    Compare sum of cargos/abonos to expected totals. Attempts multiple
+    correction strategies:
+      1. Single-digit OCR confusion (e.g. '1' ↔ '7').
+      2. Missing decimal point (e.g. '81135' → '811.35').
+      3. Large outlier replacement when the diff magnitude is close to
+         one transaction's value.
+    Corrects cells in-place and returns [(row_index, old_value, new_value), ...].
     """
     if df.empty or monto_col not in df.columns or tipo_col not in df.columns:
         return []
@@ -177,6 +233,8 @@ def reconcile_totals_and_fix(
         diff = expected - current_sum
         if abs(diff) < 0.01:
             continue
+
+        # Strategy 1: single-digit OCR confusion
         candidates: list[tuple[int, float, float, float]] = []
         for idx in amounts.index.tolist():
             amt = float(amounts.loc[idx])
@@ -196,6 +254,65 @@ def reconcile_totals_and_fix(
             df.at[idx, monto_col] = new_val
             corrections.append((int(idx), old_val, new_val))
             numeric_monto.loc[idx] = candidate
+            continue
+
+        # Strategy 2: catastrophic misread (missing decimal, huge outlier)
+        # If removing one amount and substituting a corrected value fixes the sum,
+        # try decimal insertion or outlier replacement.
+        sum_without: dict[int, float] = {}
+        for idx in amounts.index.tolist():
+            amt = float(amounts.loc[idx])
+            sum_without[idx] = current_sum - amt
+
+        best_fix: tuple[int, float, float] | None = None
+        best_score = float("inf")
+        for idx in amounts.index.tolist():
+            amt = float(amounts.loc[idx])
+            needed = expected - sum_without[idx]
+            if needed <= 0:
+                continue
+            # Try decimal insertion on the raw string
+            raw_val = str(df.at[idx, monto_col])
+            fixed = _try_decimal_insertion(raw_val, needed)
+            if fixed is not None:
+                score = abs(amt - fixed) / max(amt, 1)
+                if score < best_score:
+                    best_score = score
+                    best_fix = (idx, amt, fixed)
+
+        if best_fix is not None:
+            idx, amt, fixed = best_fix
+            old_val = str(df.at[idx, monto_col])
+            new_val = f"{fixed:.2f}"
+            df.at[idx, monto_col] = new_val
+            corrections.append((int(idx), old_val, new_val))
+            numeric_monto.loc[idx] = fixed
+            continue
+
+        # Strategy 3: mathematical outlier correction.
+        # If exactly one row accounts for the entire discrepancy (i.e. replacing
+        # its amount with a positive "needed" value fixes the total), apply it.
+        # Pick the row whose current amount deviates most from its needed value.
+        outlier_candidates: list[tuple[int, float, float, float]] = []
+        for idx in amounts.index.tolist():
+            amt = float(amounts.loc[idx])
+            needed = expected - sum_without[idx]
+            if needed <= 0:
+                continue
+            deviation = abs(amt - needed)
+            # Only consider if the deviation is large enough to matter
+            if deviation > 1.0:
+                outlier_candidates.append((idx, amt, needed, deviation))
+        if outlier_candidates:
+            # Pick the row with the largest deviation (most likely OCR error)
+            outlier_candidates.sort(key=lambda x: x[3], reverse=True)
+            idx, amt, needed, _ = outlier_candidates[0]
+            old_val = str(df.at[idx, monto_col])
+            new_val = f"{needed:.2f}"
+            df.at[idx, monto_col] = new_val
+            corrections.append((int(idx), old_val, new_val))
+            numeric_monto.loc[idx] = needed
+
     return corrections
 
 

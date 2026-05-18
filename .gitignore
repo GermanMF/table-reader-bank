@@ -35,3 +35,7 @@ output*/
 .env.local
 .env.*.local
 .cursor/
+
+# Tesseract training data
+tasks/ground_truth/*.png
+tasks/ground_truth/*.tif

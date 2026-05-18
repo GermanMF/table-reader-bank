@@ -47,6 +47,14 @@ table-reader-bank/
 ├── pyproject.toml         # Project metadata, Python ≥3.14, ruff/mypy
 ├── requirements.txt
 ├── .env.example
+├── docs/                   # Documentation and raw PDFs
+│   ├── TESSERACT_TRAINING_WORKFLOW.md # Guide for fine-tuning OCR
+│   ├── lessons.md         # Log of OCR fixes and lessons learned
+│   └── *.pdf              # Place bank statements here for training
+├── tasks/                  # Task scripts and datasets
+│   ├── export_ground_truth.py
+│   ├── correct_ground_truth.py
+│   └── ground_truth/      # Auto-generated dataset for Tesseract
 ├── table_reader/           # Main package
 │   ├── config.py          # .env loader (PEOPLE, SPLITS, MORTGAGE_TOTAL, etc.)
 │   ├── constants.py       # RENDER_DPI, column names, AMOUNT_CHAR_WHITELIST
